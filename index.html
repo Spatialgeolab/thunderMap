@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="GeoLab空間資訊實驗室專注於分享地理資訊系統（GIS）、遙感探測和空間數據分析相關的知識、技巧和最新研究成果。" />
+    <title>全台年落雷統計地圖 - GeoLab空間資訊實驗室</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body,
+      html {
+        height: 100%;
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        padding-top: 2rem;
+      }
+      #map {
+        height: 500px;
+        width: 100%;
+        max-width: 1000px; /* Adjust map width or use Bootstrap grid system */
+        margin-bottom: 1rem;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        border-radius: 5px;
+      }
+      #myChart {
+        width: 100%;
+        max-width: 800px; /* Adjust chart width */
+        max-height: 200px;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        border-radius: 5px;
+        margin: 2rem 0;
+      }
+      .navbar {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .navbar-brand img {
+        margin-right: 10px;
+      }
+      h1 {
+        font-weight: 700;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav class="navbar navbar-light bg-light justify-content-center">
+        <a class="navbar-brand" href="https://www.spatialgeolab.com/" target="_blank"> GeoLab空間資訊實驗室 </a>
+      </nav>
+    </header>
+    <div class="container">
+      <h1 class="text-center mb-4">全台年落雷統計地圖</h1>
+      <div class="row justify-content-center">
+        <canvas id="myChart" class="col-lg-8"></canvas>
+      </div>
+      <div class="row justify-content-center">
+        <div id="map" class="col-lg-8"></div>
+      </div>
+    </div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const map = L.map("map").setView([23.6978, 120.9605], 7); // Taiwan's center
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+        }).addTo(map);
+        function getColor(total) {
+          if (total >= 0 && total <= 239) return "#fcfdbf"; // 區間0 - 239
+          if (total > 239 && total <= 642) return "#feba80"; // 區間239 - 642
+          if (total > 642 && total <= 1271) return "#f8765c"; // 區間642 - 1271
+          if (total > 1271 && total <= 2287) return "#d3436e"; // 區間1271 - 2287
+          if (total > 2287 && total <= 3360) return "#982d80"; // 區間2287 - 3360
+          if (total > 3360 && total <= 4894) return "#5f187f"; // 區間3360 - 4894
+          if (total > 4894 && total <= 7224) return "#231151"; // 區間4894 - 7224
+          if (total > 7224 && total <= 10977) return "#000004"; // 區間7224 - 10977
+          // 对于最多雷击和最少雷击，您可能需要额外的逻辑来确定这些值并分配特别颜色
+          // 例如 '#000000' 或 '#ffffff'
+          return "#ffffff"; // 默认颜色
+        }
+
+        function style(feature) {
+          return {
+            fillColor: getColor(feature.properties["合計_2"]),
+            weight: 2,
+            opacity: 1,
+            color: "white",
+            dashArray: "3",
+            fillOpacity: 0.7,
+          };
+        }
+        let myChart; // Use let to declare chart
+        async function getGeodata() {
+          try {
+            const response = await fetch("src/雷擊地圖_simplify_new.geojson");
+            const data = await response.json();
+            L.geoJson(data, {
+              onEachFeature: function (feature, layer) {
+                if (feature.properties && feature.properties.Couty_Town) {
+                  layer.bindPopup(feature.properties.Couty_Town);
+                  layer.on("click", function () {
+                    showChart(formatData([111, 112], feature.properties));
+                  });
+                }
+              },
+              style: style,
+            }).addTo(map);
+          } catch (error) {
+            console.error("Failed to load geoJSON data", error);
+          }
+        }
+        getGeodata();
+
+        function showChart(data) {
+          if (myChart instanceof Chart) {
+            myChart.destroy();
+          }
+          const ctx = document.getElementById("myChart").getContext("2d");
+          myChart = new Chart(ctx, {
+            type: "line",
+            data: data,
+            options: {},
+          });
+        }
+
+        function formatData(year, properties) {
+          const labels = ["第1季", "第2季", "第3季", "第4季"];
+          return {
+            labels,
+            datasets: [
+              {
+                label: `${year[0]}年雷擊統計`,
+                data: labels.map((label) => properties[`${year[0]}年${label}`] || 0),
+                borderColor: "rgba(255, 99, 132, 1)",
+                borderWidth: 1,
+              },
+              {
+                label: `${year[1]}年雷擊統計`,
+                data: labels.map((label) => properties[`${year[1]}年${label}`] || 0),
+                borderColor: "rgba(255, 99, 132, 1)",
+                borderWidth: 1,
+              },
+            ],
+          };
+        }
+      });
+    </script>
+    <nav class="navbar navbar-light bg-light justify-content-center fixed-bottom">
+      <a class="navbar-brand" href="https://www.spatialgeolab.com/" target="_blank">
+        <img src="./src/128x128.png" width="30" height="30" class="d-inline-block align-top" alt="" loading="lazy" />
+        GeoLab空間資訊實驗室製作維護
+      </a>
+    </nav>
+    <footer class="footer mt-auto py-3 bg-light text-center">
+      <div class="container">
+        <span>© 2024 GeoLab空間資訊實驗室 版權所有</span>
+      </div>
+    </footer>
+  </body>
+</html>
